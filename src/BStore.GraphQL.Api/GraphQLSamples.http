@@ -1,0 +1,242 @@
+# BStore.GraphQL.Api — sample requests (copy any block below)
+#
+# VS Code / Cursor: install "REST Client" extension, then click "Send Request" above each request.
+# Or copy the JSON body into Postman / Insomnia / curl.
+#
+# Defaults match Properties/launchSettings.json (https profile).
+# GraphQL auth is disabled in Program.cs.
+
+@baseUrl = https://localhost:7041
+
+
+### ------------------------------------------------------------------
+### Introspection — list Query and Mutation fields
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "{ __schema { queryType { fields { name description } } mutationType { fields { name description } } } }"
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStoreList (service — parent portal + user)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($portalId: Int!, $userId: Int!) { bStoreList(portalId: $portalId, userId: $userId) { isBStoreManager isBStoreOwner bStores { portalId storeName domainURL isActive isApproved } } }",
+  "variables": {
+    "portalId": 1,
+    "userId": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStore + bStoreTheme (service)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($storeId: Int!) { bStore(storeId: $storeId) { portalId storeName isActive } bStoreTheme(storeId: $storeId) { portalId } }",
+  "variables": {
+    "storeId": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStoreCatalogs (service)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($portalId: Int!) { bStoreCatalogs(portalId: $portalId, associated: true, pageIndex: 1, pageSize: 10) { __typename } }",
+  "variables": {
+    "portalId": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStorePriceLists (service)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($portalId: Int!) { bStorePriceLists(portalId: $portalId, associated: true, pageIndex: 1, pageSize: 10) { __typename } }",
+  "variables": {
+    "portalId": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStoreDomainNameSuffix (service)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($portalId: Int!) { bStoreDomainNameSuffix(portalId: $portalId) { __typename } }",
+  "variables": {
+    "portalId": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: domainList (service)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query { domainList(pageIndex: 1, pageSize: 50) { __typename } }"
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStorePortalsFromDatabase (EF — filter / sort / projection)
+### If "where"/"order" errors, open schema for argument types and adjust.
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query { bStorePortalsFromDatabase(where: { isActive: { eq: true } }, order: [{ portalId: ASC }]) { portalId storeName companyName parentPortalId isActive bStoreDomainName } }"
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStoreCatalogAssignmentsFromDatabase (EF)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($pid: Int!) { bStoreCatalogAssignmentsFromDatabase(where: { portalId: { eq: $pid } }) { bStoresAvailableCatalogId portalId publishCatalogId catalogName isDefaultCatalog } }",
+  "variables": {
+    "pid": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: bStorePriceListAssignmentsFromDatabase (EF)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query ($pid: Int!) { bStorePriceListAssignmentsFromDatabase(where: { portalId: { eq: $pid } }) { bStoresAvailablePriceListId portalId priceListId listCode listName isDefaultPriceList } }",
+  "variables": {
+    "pid": 1
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Query: domainsFromDatabase (EF)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "query { domainsFromDatabase(where: { isActive: { eq: true } }, order: [{ domainName: ASC }]) { domainId portalId domainName isDefault applicationType } }"
+}
+
+
+### ------------------------------------------------------------------
+### Mutation: bStoreSetActivation
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "mutation ($storeId: Int!, $userId: Int!, $active: Boolean!) { bStoreSetActivation(storeId: $storeId, userId: $userId, active: $active) }",
+  "variables": {
+    "storeId": 1,
+    "userId": 1,
+    "active": true
+  }
+}
+
+
+### ------------------------------------------------------------------
+### Mutation: bStoreRemoveUploadedFile (comma-separated media ids)
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "mutation { bStoreRemoveUploadedFile(mediaIds: \"1,2,3\") }"
+}
+
+
+### ------------------------------------------------------------------
+### Mutation: bStoreCreate — PLACEHOLDER (expand input from schema)
+### Use Banana Cake Pop / introspection for BStoresWebStoreCreateRequestV2 input fields.
+### ------------------------------------------------------------------
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "mutation ($portalId: Int!, $userId: Int!, $input: BStoresWebStoreCreateRequestV2Input!) { bStoreCreate(portalId: $portalId, userId: $userId, input: $input) { __typename } }",
+  "variables": {
+    "portalId": 1,
+    "userId": 1,
+    "input": {}
+  }
+}
+
+
+### ------------------------------------------------------------------
+### curl (Windows CMD) — introspection without REST Client
+### ------------------------------------------------------------------
+# curl -sS -X POST "https://localhost:7041/graphql" -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" -d "{\"query\":\"{ __typename }\"}"
+
+
+################################################################################
+# RAW GRAPHQL — paste into Banana Cake Pop left pane (Variables tab for $vars)
+################################################################################
+
+# query IntrospectionMinimal {
+#   __schema {
+#     queryType { fields { name } }
+#     mutationType { fields { name } }
+#   }
+# }
+
+# query BStoreListExample($portalId: Int!, $userId: Int!) {
+#   bStoreList(portalId: $portalId, userId: $userId) {
+#     isBStoreManager
+#     isBStoreOwner
+#     bStores {
+#       portalId
+#       storeName
+#       domainURL
+#       isActive
+#     }
+#   }
+# }
+# Variables: { "portalId": 1, "userId": 1 }
+
+# query EfPortals {
+#   bStorePortalsFromDatabase(where: { isActive: { eq: true } }, order: [{ portalId: ASC }]) {
+#     portalId
+#     storeName
+#     companyName
+#   }
+# }
+
+# mutation SetActivation($storeId: Int!, $userId: Int!, $active: Boolean!) {
+#   bStoreSetActivation(storeId: $storeId, userId: $userId, active: $active)
+# }
+# Variables: { "storeId": 1, "userId": 1, "active": true }
