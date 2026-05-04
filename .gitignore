@@ -4,6 +4,8 @@
 # Build outputs
 bin/
 obj/
+**/obj/
+**/bin/
 
 # NuGet packages
 *.nupkg

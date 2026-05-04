@@ -28,6 +28,7 @@ var graphqlOpts = builder.Configuration
     .Get<GraphQLOptions>() ?? new GraphQLOptions();
 
 // 4. GraphQL stack (EF, resolvers, interceptors, pipelines, providers, DataLoaders, HC)
+//    Also registers dual schemas: "storefront" and "admin"
 builder.AddBStoreGraphQlStack();
 
 var app = builder.Build();
@@ -62,19 +63,55 @@ app.MapGet("/health/providers", (IProviderHealthTracker tracker, IRequestDebugCo
 
 app.MapGet("/", () => Results.Redirect("/graphql")).AllowAnonymous();
 
+// ──────────────────────────────────────────────────────────────────────
+// THREE GRAPHQL ENDPOINTS
+// /graphql            — unified (backwards compatible, all operations)
+// /graphql/storefront — customer-facing (products, cart, auth, account)
+// /graphql/admin      — admin-only (B-store mgmt, user mgmt, diagnostics)
+// ──────────────────────────────────────────────────────────────────────
+
+// Unified schema (backwards-compatible, existing clients)
 var graphql = app.MapGraphQL("/graphql").WithOptions(new GraphQLServerOptions
 {
     Tool =
     {
         Enable = app.Environment.IsDevelopment(),
-        Title  = "BStore GraphQL (Znode-aligned)"
+        Title  = "BStore GraphQL — Unified"
+    }
+});
+
+// Storefront schema (customer-facing, smaller attack surface)
+var storefront = app.MapGraphQL("/graphql/storefront", "storefront").WithOptions(new GraphQLServerOptions
+{
+    Tool =
+    {
+        Enable = app.Environment.IsDevelopment(),
+        Title  = "BStore GraphQL — Storefront"
+    }
+});
+
+// Admin schema (admin-only, stricter rate limits)
+var admin = app.MapGraphQL("/graphql/admin", "admin").WithOptions(new GraphQLServerOptions
+{
+    Tool =
+    {
+        Enable = app.Environment.IsDevelopment(),
+        Title  = "BStore GraphQL — Admin"
     }
 });
 
 if (rateLimitSettings.Enabled)
+{
     graphql.RequireRateLimiting(RateLimitingRegistration.PolicyGlobal);
+    storefront.RequireRateLimiting(RateLimitingRegistration.PolicyGlobal);
+    admin.RequireRateLimiting(RateLimitingRegistration.PolicyAdmin);
+}
 
 if (app.Environment.IsDevelopment() && graphqlOpts.EnableDevCors)
+{
     graphql.RequireCors("BStoreGraphQLDev");
+    storefront.RequireCors("BStoreGraphQLDev");
+    admin.RequireCors("BStoreGraphQLDev");
+}
 
 app.Run();

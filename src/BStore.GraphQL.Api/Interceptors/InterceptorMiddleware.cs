@@ -63,22 +63,41 @@ public sealed class InterceptorMiddleware
         if (!ReferenceEquals(result, context.Result))
             context.Result = result;
 
-        // --- After Actions (fire-and-forget, never fail the request) ---
+        // --- After Actions (fire-and-forget via BackgroundActionChannel) ---
         var matchedAfter = afterActions
             .Where(a => a.Operations.Count == 0 || a.Operations.Contains(operationName))
             .OrderBy(a => a.Order);
 
+        var bgChannel = services.GetService<BackgroundActionChannel>();
         var logger = services.GetService<ILogger<InterceptorMiddleware>>();
+
         foreach (var action in matchedAfter)
         {
-            try
+            if (bgChannel is not null)
             {
-                await action.ExecuteAsync(interceptorCtx, result, ct);
+                // Enqueue for true fire-and-forget background processing
+                var enqueued = bgChannel.TryEnqueue(new BackgroundActionItem
+                {
+                    Action = action,
+                    Context = interceptorCtx,
+                    Result = result
+                });
+                if (!enqueued)
+                    logger?.LogWarning("BackgroundActionChannel full; dropping after-action {Action} for {Operation}",
+                        action.GetType().Name, operationName);
             }
-            catch (Exception ex)
+            else
             {
-                logger?.LogWarning(ex, "After-action {Action} failed for {Operation}",
-                    action.GetType().Name, operationName);
+                // Fallback: execute inline if channel not registered
+                try
+                {
+                    await action.ExecuteAsync(interceptorCtx, result, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogWarning(ex, "After-action {Action} failed for {Operation}",
+                        action.GetType().Name, operationName);
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 using BStore.GraphQL.Api.Application;
 using BStore.GraphQL.Api.Attributes;
+using BStore.GraphQL.Api.Auth;
 using BStore.GraphQL.Api.Bulk;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Catalog;
@@ -10,6 +11,8 @@ using BStore.GraphQL.Api.Diagnostics;
 using BStore.GraphQL.Api.GraphQL.Mutations;
 using BStore.GraphQL.Api.GraphQL.Queries;
 using BStore.GraphQL.Api.GraphQL.Resolvers;
+using BStore.GraphQL.Api.GraphQL.Schema.Admin;
+using BStore.GraphQL.Api.GraphQL.Schema.Storefront;
 using BStore.GraphQL.Api.Interceptors;
 using BStore.GraphQL.Api.Interceptors.Samples;
 using BStore.GraphQL.Api.Media;
@@ -139,12 +142,21 @@ public static class BStoreGraphQLServiceRegistration
         });
 
         // --- Interceptor Framework ---
+        builder.Services.AddSingleton<BackgroundActionChannel>();
+        builder.Services.AddHostedService<BackgroundActionHostedService>();
         builder.Services.AddScoped<IBeforeAction, LogAllOperationsAction>();
         builder.Services.AddScoped<IBeforeAction, RateLimitBeforeInterceptor>();
         builder.Services.AddScoped<IAfterAction, SecurityAuditInterceptor>();
+        builder.Services.AddScoped<IAfterAction, ErpSyncAfterOrderAction>();
         builder.Services.AddScoped<ITransformResult, ExternalPricingTransform>();
 
+        // --- Ownership Guards ---
+        builder.Services.AddScoped<BStoreOwnershipGuard>();
+        builder.Services.AddScoped<AdminOwnershipGuard>();
+        builder.Services.AddScoped<StorefrontOwnershipGuard>();
+
         // --- Pipeline Pattern (Order) ---
+        builder.Services.Configure<PipelineSettings>(builder.Configuration.GetSection(PipelineSettings.Section));
         builder.Services.AddScoped(typeof(PipelineExecutor<>));
         builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, ValidateCartStep>();
         builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, CalculatePricingStep>();
@@ -223,6 +235,77 @@ public static class BStoreGraphQLServiceRegistration
         {
             hcBuilder.DisableIntrospection();
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // DUAL-SCHEMA ARCHITECTURE
+        // Separate schemas for storefront (customer-facing) and admin operations.
+        // Smaller attack surface per schema, tailored to each client type.
+        // ──────────────────────────────────────────────────────────────────────
+
+        // --- Storefront Schema (/graphql/storefront) ---
+        var storefrontBuilder = builder.Services
+            .AddGraphQLServer("storefront")
+            .AddQueryType<StorefrontQuery>()
+            .AddMutationType<StorefrontMutation>()
+            .AddTypeExtension<StorefrontProductQueryResolvers>()
+            .AddTypeExtension<StorefrontAuthMutationResolvers>()
+            .AddProjections()
+            .AddFiltering()
+            .AddSorting()
+            .AddDataLoader<ProductByIdDataLoader>()
+            .AddDataLoader<ProductImageDataLoader>()
+            .AddDataLoader<ProductPricingDataLoader>()
+            .AddDataLoader<ProductInventoryDataLoader>()
+            .AddDataLoader<ProductAttributeDataLoader>()
+            .AddUploadType()
+            .AddAuthorization()
+            .AddErrorFilter<BStoreGraphQLErrorFilter>()
+            .AddDiagnosticEventListener<BStoreGraphQLDiagnosticListener>()
+            .AddMaxExecutionDepthRule(gql.MaxQueryDepth)
+            .ModifyPagingOptions(o =>
+            {
+                o.MaxPageSize = gql.MaxPageSize;
+                o.DefaultPageSize = gql.DefaultRelayPageSize;
+                o.IncludeTotalCount = true;
+                o.RequirePagingBoundaries = false;
+            })
+            .ModifyRequestOptions(o =>
+                o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
+
+        if (!builder.Environment.IsDevelopment() && !gql.EnableIntrospectionInProd)
+            storefrontBuilder.DisableIntrospection();
+
+        // --- Admin Schema (/graphql/admin) ---
+        var adminBuilder = builder.Services
+            .AddGraphQLServer("admin")
+            .AddQueryType<AdminQuery>()
+            .AddMutationType<AdminMutation>()
+            .AddTypeExtension<AdminBStoreQueryResolvers>()
+            .AddTypeExtension<AdminBStoreMutationResolvers>()
+            .AddTypeExtension<AdminDiagnoseQueryResolvers>()
+            .AddTypeExtension<AdminUserMutationResolvers>()
+            .AddProjections()
+            .AddFiltering()
+            .AddSorting()
+            .AddDataLoader<ProductByIdDataLoader>()
+            .AddDataLoader<OrderLineItemDataLoader>()
+            .AddUploadType()
+            .AddAuthorization()
+            .AddErrorFilter<BStoreGraphQLErrorFilter>()
+            .AddDiagnosticEventListener<BStoreGraphQLDiagnosticListener>()
+            .AddMaxExecutionDepthRule(gql.MaxQueryDepth)
+            .ModifyPagingOptions(o =>
+            {
+                o.MaxPageSize = gql.MaxPageSize;
+                o.DefaultPageSize = gql.DefaultRelayPageSize;
+                o.IncludeTotalCount = true;
+                o.RequirePagingBoundaries = false;
+            })
+            .ModifyRequestOptions(o =>
+                o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
+
+        if (!builder.Environment.IsDevelopment() && !gql.EnableIntrospectionInProd)
+            adminBuilder.DisableIntrospection();
 
         return builder;
     }
