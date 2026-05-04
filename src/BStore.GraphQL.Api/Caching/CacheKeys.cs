@@ -110,4 +110,29 @@ internal static class CacheKeys
     /// <summary>Global attribute group definitions (ADR-001).</summary>
     internal static string GlobalAttributeGroups(int portalId, string locale) =>
         $"attr:groups:{portalId}:{locale}";
+
+    // ── Top-level prefixes (used by scoped flush) ────────────────────────
+
+    internal const string PrefixBStore   = $"{BStorePrefix}:";
+    internal const string PrefixUser     = $"{UserPrefix}:";
+    internal const string PrefixProduct  = $"{ProductPrefix}:";
+    internal const string PrefixCategory = "catalog:";
+    internal const string PrefixAttr     = "attr:";
+    internal const string PrefixWebsite  = "website:";
+
+    /// <summary>
+    /// Returns every key prefix that belongs to a given portal — used by the portal-aware
+    /// scoped flush mode. Includes B-store identity, user role/access cached for this portal,
+    /// catalog and price-list pagination, domain suffix and per-portal attribute groups.
+    /// </summary>
+    internal static IEnumerable<string> ForPortal(int portalId) =>
+    [
+        $"{BStorePrefix}:portal:{portalId}",
+        $"{BStorePrefix}:theme:{portalId}",
+        $"{BStorePrefix}:list:{portalId}:",
+        $"{BStorePrefix}:catalogs:{portalId}:",
+        $"{BStorePrefix}:pricelists:{portalId}:",
+        $"{BStorePrefix}:domain-suffix:{portalId}",
+        $"attr:groups:{portalId}:"
+    ];
 }

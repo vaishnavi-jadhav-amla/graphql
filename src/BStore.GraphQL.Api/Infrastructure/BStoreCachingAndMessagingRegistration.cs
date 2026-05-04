@@ -1,11 +1,13 @@
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Configuration;
 using BStore.GraphQL.Api.Messaging;
+using StackExchange.Redis;
 
 namespace BStore.GraphQL.Api.Infrastructure;
 
 /// <summary>
-/// Registers L1/L2 caching (memory + Redis) and optional RabbitMQ publish/subscribe.
+/// Registers L1/L2 caching (memory + Redis), Redis Pub/Sub L1 invalidation,
+/// scoped cache flushing, and optional RabbitMQ publish/subscribe.
 /// </summary>
 public static class BStoreCachingAndMessagingRegistration
 {
@@ -37,13 +39,31 @@ public static class BStoreCachingAndMessagingRegistration
                     ? "BStoreGraphQL:"
                     : cacheOpts.RedisInstanceName;
             });
+
+            // Singleton ConnectionMultiplexer is reused for Pub/Sub broadcasts. Microsoft's
+            // distributed cache wrapper opens its own multiplexer internally; we open a second
+            // (named) one here for low-overhead pub/sub use.
+            builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+                ConnectionMultiplexer.Connect(redisConn!));
         }
         else
         {
             builder.Services.AddDistributedMemoryCache();
         }
 
+        // Pub/Sub broadcaster — Redis impl when configured, otherwise a no-op.
+        if (useRedis && cacheOpts.EnablePubSubInvalidation)
+        {
+            builder.Services.AddSingleton<ICacheInvalidationBroadcaster, RedisCacheInvalidationBroadcaster>();
+            builder.Services.AddHostedService<RedisCacheInvalidationSubscriber>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<ICacheInvalidationBroadcaster, NullCacheInvalidationBroadcaster>();
+        }
+
         builder.Services.AddSingleton<ICacheService, LayeredCacheService>();
+        builder.Services.AddSingleton<ICacheFlushService, CacheFlushService>();
 
         var rmq = builder.Configuration.GetSection(RabbitMqOptions.Section).Get<RabbitMqOptions>() ?? new RabbitMqOptions();
         if (rmq.Enabled)
