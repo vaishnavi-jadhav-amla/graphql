@@ -1,0 +1,54 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet run:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(git *)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Read",
+      "Grep",
+      "Glob",
+      "Write",
+      "Edit"
+    ]
+  },
+  "env": {
+    "DOTNET_ENVIRONMENT": "Development",
+    "ASPNETCORE_ENVIRONMENT": "Development"
+  },
+  "autoMemoryEnabled": true,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "code-review-graph update --skip-flows",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "code-review-graph status",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
