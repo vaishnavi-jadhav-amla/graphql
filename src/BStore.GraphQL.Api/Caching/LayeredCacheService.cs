@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.Json;
@@ -12,6 +13,7 @@ namespace BStore.GraphQL.Api.Caching;
 /// <summary>
 /// L1: <see cref="IMemoryCache"/> (fast, per process). L2: <see cref="IDistributedCache"/> (Redis or memory).
 /// On miss: factory → L2 → L1. Invalidations clear both layers.
+/// Includes stampede protection via per-key semaphore locking to prevent thundering herd.
 /// </summary>
 public sealed class LayeredCacheService(
     IMemoryCache memory,
@@ -25,49 +27,77 @@ public sealed class LayeredCacheService(
     private readonly bool _compressL2 = cachingOptions.Value.CompressL2Payloads;
     private readonly int  _compressMinBytes = Math.Max(0, cachingOptions.Value.CompressL2MinBytes);
 
+    // Stampede protection: one semaphore per cache key prevents concurrent factory calls for the same key.
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> KeyLocks = new();
+    private readonly HashSet<string> _trackedKeys = new(StringComparer.Ordinal);
+    private readonly object _keyTrackingGate = new();
+
     public async Task<T?> GetOrSetAsync<T>(
         string key,
         Func<Task<T?>> factory,
         TimeSpan? expiry = null,
         CancellationToken ct = default) where T : class
     {
+        // Fast path: L1 hit (no lock needed)
         if (memory.TryGetValue(key, out object? cached) && cached is T typed)
         {
             logger.LogDebug("L1 cache hit: {Key}", key);
             return typed;
         }
 
-        var sw = Stopwatch.StartNew();
+        // Stampede protection: acquire a per-key lock so only one caller runs the factory
+        var keyLock = KeyLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        await keyLock.WaitAsync(ct);
         try
         {
-            var bytes = await distributed.GetAsync(key, ct);
-            sw.Stop();
-            providerHealth.Record(DataSource.CacheL2, success: true, sw.ElapsedMilliseconds);
-            if (bytes is { Length: > 0 })
+            // Double-check L1 after acquiring lock (another thread may have populated it)
+            if (memory.TryGetValue(key, out cached) && cached is T typed2)
             {
-                var fromL2 = DeserializePayload<T>(bytes);
-                if (fromL2 is not null)
+                logger.LogDebug("L1 cache hit (post-lock): {Key}", key);
+                return typed2;
+            }
+
+            var sw = Stopwatch.StartNew();
+            try
+            {
+                var bytes = await distributed.GetAsync(key, ct);
+                sw.Stop();
+                providerHealth.Record(DataSource.CacheL2, success: true, sw.ElapsedMilliseconds);
+                if (bytes is { Length: > 0 })
                 {
-                    logger.LogDebug("L2 cache hit: {Key}", key);
-                    SetL1(key, fromL2, expiry);
-                    return fromL2;
+                    var fromL2 = DeserializePayload<T>(bytes);
+                    if (fromL2 is not null)
+                    {
+                        logger.LogDebug("L2 cache hit: {Key}", key);
+                        SetL1(key, fromL2, expiry);
+                        TrackKey(key);
+                        return fromL2;
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                providerHealth.Record(DataSource.CacheL2, success: false, sw.ElapsedMilliseconds, ex.Message);
+                logger.LogWarning(ex, "L2 cache read failed for {Key}; continuing without L2", key);
+            }
+
+            var value = await factory();
+            if (value is null)
+                return null;
+
+            await SetL2Async(key, value, expiry, ct);
+            SetL1(key, value, expiry);
+            TrackKey(key);
+            return value;
         }
-        catch (Exception ex)
+        finally
         {
-            sw.Stop();
-            providerHealth.Record(DataSource.CacheL2, success: false, sw.ElapsedMilliseconds, ex.Message);
-            logger.LogWarning(ex, "L2 cache read failed for {Key}; continuing without L2", key);
+            keyLock.Release();
+            // Clean up semaphore if no one else is waiting (prevent memory leak)
+            if (keyLock.CurrentCount == 1)
+                KeyLocks.TryRemove(key, out _);
         }
-
-        var value = await factory();
-        if (value is null)
-            return null;
-
-        await SetL2Async(key, value, expiry, ct);
-        SetL1(key, value, expiry);
-        return value;
     }
 
     public async Task RemoveAsync(string key, CancellationToken ct = default)
@@ -163,5 +193,34 @@ public sealed class LayeredCacheService(
             logger.LogWarning(ex, "Cache payload deserialize failed");
             return null;
         }
+    }
+
+    /// <summary>Track a key for prefix-based invalidation.</summary>
+    private void TrackKey(string key)
+    {
+        lock (_keyTrackingGate) _trackedKeys.Add(key);
+    }
+
+    /// <summary>
+    /// Remove all cache entries whose keys start with the given prefix.
+    /// Useful for invalidating all entries for a specific entity (e.g. "bstore:123:").
+    /// </summary>
+    public async Task RemoveByPrefixAsync(string prefix, CancellationToken ct = default)
+    {
+        string[] matchingKeys;
+        lock (_keyTrackingGate)
+        {
+            matchingKeys = _trackedKeys
+                .Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+                .ToArray();
+
+            foreach (var key in matchingKeys)
+                _trackedKeys.Remove(key);
+        }
+
+        foreach (var key in matchingKeys)
+            await RemoveAsync(key, ct);
+
+        logger.LogDebug("Prefix invalidation: {Prefix} removed {Count} keys", prefix, matchingKeys.Length);
     }
 }

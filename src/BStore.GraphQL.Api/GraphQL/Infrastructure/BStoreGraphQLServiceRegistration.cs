@@ -10,7 +10,13 @@ using BStore.GraphQL.Api.Diagnostics;
 using BStore.GraphQL.Api.GraphQL.Mutations;
 using BStore.GraphQL.Api.GraphQL.Queries;
 using BStore.GraphQL.Api.GraphQL.Resolvers;
+using BStore.GraphQL.Api.Interceptors;
+using BStore.GraphQL.Api.Interceptors.Samples;
 using BStore.GraphQL.Api.Media;
+using BStore.GraphQL.Api.Pipeline;
+using BStore.GraphQL.Api.Pipeline.Order;
+using BStore.GraphQL.Api.Pipeline.Order.Steps;
+using BStore.GraphQL.Api.Providers;
 using BStore.GraphQL.Api.Search;
 using BStore.GraphQL.Api.Services;
 using BStore.GraphQL.Api.Storefront;
@@ -21,13 +27,14 @@ using Znode.Libraries.Data.ZnodeEntity;
 namespace BStore.GraphQL.Api.GraphQL.Infrastructure;
 
 /// <summary>
-/// Central GraphQL + Znode EF registration (mirrors <c>Znode.Engine.GraphQL.GraphQLServiceRegistration</c> layout:
-/// retrying SQL, DbContext factory, HttpContextAccessor, HC error filter, diagnostics, depth and paging limits).
+/// Central GraphQL + Znode EF registration. Includes data access, resolvers, interceptors,
+/// pipelines, external providers, additional DataLoaders, and Hot Chocolate configuration.
 /// </summary>
 public static class BStoreGraphQLServiceRegistration
 {
     /// <summary>
-    /// Registers Znode <see cref="Znode_Entities"/>, data/application services, auth HttpClient, resolver types, and Hot Chocolate.
+    /// Registers Znode <see cref="Znode_Entities"/>, data/application services, auth HttpClient,
+    /// interceptors, pipelines, providers, resolver types, and Hot Chocolate.
     /// </summary>
     public static WebApplicationBuilder AddBStoreGraphQlStack(this WebApplicationBuilder builder)
     {
@@ -131,6 +138,30 @@ public static class BStoreGraphQLServiceRegistration
             c.Timeout     = TimeSpan.FromSeconds(timeoutSec);
         });
 
+        // --- Interceptor Framework ---
+        builder.Services.AddScoped<IBeforeAction, LogAllOperationsAction>();
+        builder.Services.AddScoped<IBeforeAction, RateLimitBeforeInterceptor>();
+        builder.Services.AddScoped<IAfterAction, SecurityAuditInterceptor>();
+        builder.Services.AddScoped<ITransformResult, ExternalPricingTransform>();
+
+        // --- Pipeline Pattern (Order) ---
+        builder.Services.AddScoped(typeof(PipelineExecutor<>));
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, ValidateCartStep>();
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, CalculatePricingStep>();
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, ApplyDiscountsStep>();
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, CalculateTaxStep>();
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, CreateOrderRecordStep>();
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, ProcessPaymentStep>();
+        builder.Services.AddScoped<IPipelineStep<OrderPipelineContext>, SendConfirmationStep>();
+
+        // --- External Provider Registry ---
+        builder.Services.Configure<ProvidersOptions>(builder.Configuration.GetSection(ProvidersOptions.Section));
+        builder.Services.AddHttpClient("ExternalProvider");
+        builder.Services.AddSingleton<IProviderRegistry, ProviderRegistry>();
+
+        // --- Permission Settings ---
+        builder.Services.Configure<PermissionSettings>(builder.Configuration.GetSection(PermissionSettings.Section));
+
         builder.Services.AddHealthChecks();
 
         builder.Services.AddScoped<BStoreQueryResolvers>();
@@ -163,11 +194,17 @@ public static class BStoreGraphQLServiceRegistration
             .AddTypeExtension<ProductConnectionResolvers>()
             .AddTypeExtension<AttributeQueryResolvers>()
             .AddDataLoader<ProductByIdDataLoader>()
+            .AddDataLoader<ProductImageDataLoader>()
+            .AddDataLoader<ProductPricingDataLoader>()
+            .AddDataLoader<ProductInventoryDataLoader>()
+            .AddDataLoader<ProductAttributeDataLoader>()
+            .AddDataLoader<OrderLineItemDataLoader>()
             .AddMutationType<BStoreMutation>()
             .AddTypeExtension<BStoreUserMutation>()
             .AddTypeExtension<UserMutation>()
             .AddTypeExtension<AuthMutation>()
             .AddUploadType()
+            .AddAuthorization()
             .AddErrorFilter<BStoreGraphQLErrorFilter>()
             .AddDiagnosticEventListener<BStoreGraphQLDiagnosticListener>()
             .AddMaxExecutionDepthRule(gql.MaxQueryDepth)

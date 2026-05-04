@@ -1,0 +1,39 @@
+# Visual Studio local settings
+.vs/
+
+# Build outputs
+bin/
+obj/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+packages/
+!**/packages/build/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Publish profiles
+**/Properties/PublishProfiles/
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# dotnet secrets
+**/secrets.json
+
+# Environment overrides
+appsettings.*.local.json
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

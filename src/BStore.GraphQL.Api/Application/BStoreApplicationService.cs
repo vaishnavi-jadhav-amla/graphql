@@ -1,14 +1,12 @@
 using BStore.GraphQL.Api.Data;
 using BStore.GraphQL.Api.GraphQL.Types;
-using HotChocolate;
 using HotChocolate.Types;
-using ErrorCodes = BStore.GraphQL.Api.Common.ErrorCodes;
 
 namespace BStore.GraphQL.Api.Application;
 
 /// <summary>
 /// B-store façade: reads and supported writes use <see cref="Znode.Libraries.Data.ZnodeEntity.Znode_Entities"/> via EF only.
-/// Create, duplicate, and file operations are not implemented in-process (full Znode pipeline required).
+/// All mutations delegate to <see cref="IBStoreEfWriteService"/>.
 /// </summary>
 public sealed class BStoreApplicationService(IBStoreEfReadService reads, IBStoreEfWriteService writes)
     : IBStoreApplicationService
@@ -40,15 +38,11 @@ public sealed class BStoreApplicationService(IBStoreEfReadService reads, IBStore
 
     public Task<CreateStoreResult?> CreateStoreAsync(
         int portalId, int userId, CreateBStoreInput input, CancellationToken ct = default) =>
-        throw CreateNotSupported();
+        writes.CreateStoreAsync(portalId, userId, input, ct);
 
     public Task<bool> DuplicateStoreAsync(
         int sourcePortalId, int userId, DuplicateBStoreInput input, CancellationToken ct = default) =>
-        throw new GraphQLException(ErrorBuilder.New()
-            .SetMessage(
-                "B-store copy is not implemented in the GraphQL database layer. Use Znode BStoresService or administrative tooling.")
-            .SetCode(ErrorCodes.NotSupportedDbOperation)
-            .Build());
+        writes.DuplicateStoreAsync(sourcePortalId, userId, input, ct);
 
     public Task<bool> SetActivationAsync(int storeId, int userId, bool active, CancellationToken ct = default) =>
         writes.SetActivationAsync(storeId, userId, active, ct);
@@ -62,26 +56,8 @@ public sealed class BStoreApplicationService(IBStoreEfReadService reads, IBStore
         writes.UpdateStoreDesignAsync(storeId, userId, input, ct);
 
     public Task<FileUploadResult?> UploadFileAsync(IFile file, int mediaId, string? fileType, CancellationToken ct = default) =>
-        throw FileNotSupported();
+        writes.UploadFileAsync(file, mediaId, fileType, ct);
 
     public Task<bool> DeleteFileAsync(string mediaIds, CancellationToken ct = default) =>
-        throw new GraphQLException(ErrorBuilder.New()
-            .SetMessage(
-                "File removal is not implemented in the GraphQL database layer. Use Znode media services or administrative tooling.")
-            .SetCode(ErrorCodes.NotSupportedDbOperation)
-            .Build());
-
-    private static GraphQLException CreateNotSupported() =>
-        new(ErrorBuilder.New()
-            .SetMessage(
-                "B-store creation is not implemented in the GraphQL database layer. Use Znode BStoresService or administrative tooling.")
-            .SetCode(ErrorCodes.NotSupportedDbOperation)
-            .Build());
-
-    private static GraphQLException FileNotSupported() =>
-        new(ErrorBuilder.New()
-            .SetMessage(
-                "File upload is not implemented in the GraphQL database layer. Use Znode media services or storage integration.")
-            .SetCode(ErrorCodes.NotSupportedDbOperation)
-            .Build());
+        writes.DeleteFileAsync(mediaIds, ct);
 }

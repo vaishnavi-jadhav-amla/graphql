@@ -1,5 +1,6 @@
 using BStore.GraphQL.Api.Common;
 using BStore.GraphQL.Api.Diagnostics;
+using BStore.GraphQL.Api.Diagnostics.Exceptions;
 using HotChocolate;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -40,6 +41,24 @@ public sealed class BStoreGraphQLErrorFilter(
 
         (string message, string code, string category, string? details) = ex switch
         {
+            CrossTenantAccessException cta => (
+                cta.Message,
+                "CROSS_TENANT_ACCESS_DENIED",
+                ErrorCategory.Authorization,
+                $"Cross-tenant access denied. Caller portal: {cta.CallerPortalId}, requested: {cta.RequestedPortalId}."),
+
+            BStoreAccessException bsa => (
+                bsa.Message,
+                "BSTORE_ACCESS_DENIED",
+                ErrorCategory.Authorization,
+                $"User {bsa.UserId} does not have access to B-store {bsa.BStoreId}."),
+
+            BStoreNotFoundException bnf => (
+                bnf.Message,
+                Common.ErrorCodes.NotFound,
+                ErrorCategory.NotFound,
+                $"B-store {bnf.BStoreId} was not found or is not accessible."),
+
             ArgumentException arg => (
                 arg.Message,
                 "INVALID_ARGUMENT",

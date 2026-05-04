@@ -14,19 +14,24 @@ public sealed class BStoreEfReadService(
     Znode_Entities db,
     ILogger<BStoreEfReadService> log) : IBStoreEfReadService
 {
+    private const string BStoreOwnerRole   = "BStoreOwner";
+    private const string BStoreManagerRole = "BStoreManager";
+
     public async Task<BStoreListResult?> GetStoresAsync(int parentPortalId, int userId, CancellationToken ct)
     {
         try
         {
-            // Project to the projection columns BEFORE materializing so EF only requests these
-            // fields (some legacy ZnodePortal columns like SMTPAuthenticationType are not present
-            // in every customer schema).
+            // Match the REST API logic: join through ZnodeBStoresUserPortalRole + AspNetRoles
+            // and filter by BStoreOwner / BStoreManager roles (not ZnodeUserPortals).
             var rows = await (
-                    from up in db.ZnodeUserPortals.AsNoTracking()
-                    join p in db.ZnodePortals.AsNoTracking() on up.PortalId equals p.PortalId
-                    where up.UserId == userId
-                          && p.ParentPortalId == parentPortalId
-                          && p.IsBStore
+                    from p in db.ZnodePortals.AsNoTracking()
+                    join portalAccess in db.ZnodeBStoresUserPortalRoles.AsNoTracking()
+                        on p.PortalId equals portalAccess.BStorePortalId
+                    join role in db.AspNetRoles.AsNoTracking()
+                        on portalAccess.RoleId equals role.Id
+                    where p.ParentPortalId == parentPortalId
+                          && portalAccess.UserId == userId
+                          && (role.Name == BStoreOwnerRole || role.Name == BStoreManagerRole)
                     orderby p.ModifiedDate descending
                     select new
                     {
@@ -56,11 +61,34 @@ public sealed class BStoreEfReadService(
                 })
                 .ToList();
 
+            // Compute role flags from AspNet roles (matching REST API behavior).
+            var aspNetUserId = await db.ZnodeUsers.AsNoTracking()
+                .Where(u => u.UserId == userId)
+                .Select(u => u.AspNetUserId)
+                .FirstOrDefaultAsync(ct);
+
+            bool isBStoreManager = false;
+            bool isBStoreOwner   = false;
+            if (!string.IsNullOrEmpty(aspNetUserId))
+            {
+                var roleNames = await (
+                        from u in db.AspNetUsers.AsNoTracking()
+                        where u.Id == aspNetUserId
+                        from r in u.Roles
+                        select r.Name)
+                    .ToListAsync(ct);
+
+                isBStoreManager = roleNames.Any(n =>
+                    n.Contains(BStoreManagerRole, StringComparison.OrdinalIgnoreCase));
+                isBStoreOwner = roleNames.Any(n =>
+                    n.Contains(BStoreOwnerRole, StringComparison.OrdinalIgnoreCase));
+            }
+
             return new BStoreListResult
             {
                 BStores         = items,
-                IsBStoreManager = false,
-                IsBStoreOwner   = false
+                IsBStoreManager = isBStoreManager,
+                IsBStoreOwner   = isBStoreOwner
             };
         }
         catch (Exception ex)
@@ -75,7 +103,7 @@ public sealed class BStoreEfReadService(
         // Server-side projection — never materialize the whole ZnodePortal entity, since some
         // optional columns (e.g. SMTPAuthenticationType) may be absent from older DB snapshots.
         var p = await db.ZnodePortals.AsNoTracking()
-            .Where(x => x.PortalId == storeId && x.IsBStore)
+            .Where(x => x.PortalId == storeId && x.ParentPortalId != null)
             .Select(x => new
             {
                 x.PortalId,
