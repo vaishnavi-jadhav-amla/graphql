@@ -282,6 +282,7 @@ public static class BStoreGraphQLServiceRegistration
             .AddMutationType<AdminMutation>()
             .AddTypeExtension<AdminBStoreQueryResolvers>()
             .AddTypeExtension<AdminBStoreMutationResolvers>()
+            .AddTypeExtension<AdminCacheMutationResolvers>()
             .AddTypeExtension<AdminDiagnoseQueryResolvers>()
             .AddTypeExtension<AdminUserMutationResolvers>()
             .AddProjections()
