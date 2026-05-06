@@ -1,6 +1,7 @@
 using BStore.GraphQL.Api.Configuration;
 using BStore.GraphQL.Api.Diagnostics;
 using BStore.GraphQL.Api.GraphQL.Queries;
+using BStore.GraphQL.Api.GraphQL.Types;
 using BStore.GraphQL.Api.Media;
 using HotChocolate;
 using HotChocolate.Types;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Options;
 using Znode.Libraries.Data.ZnodeEntity;
 using ICacheService = BStore.GraphQL.Api.Caching.ICacheService;
 
-namespace BStore.GraphQL.Api.Storefront;
+namespace BStore.GraphQL.Api.GraphQL.Schema.Storefront;
 
 /// <summary>
 /// ADR-008: <c>websiteEntry(portalCode, locale, path)</c> single entry-point query for storefront pages.

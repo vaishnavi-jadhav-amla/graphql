@@ -23,7 +23,6 @@ using BStore.GraphQL.Api.Pipeline.Order.Steps;
 using BStore.GraphQL.Api.Providers;
 using BStore.GraphQL.Api.Search;
 using BStore.GraphQL.Api.Services;
-using BStore.GraphQL.Api.Storefront;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Znode.Libraries.Data.ZnodeEntity;

@@ -1,6 +1,6 @@
 using HotChocolate;
 
-namespace BStore.GraphQL.Api.Storefront;
+namespace BStore.GraphQL.Api.GraphQL.Types;
 
 /// <summary>
 /// Single entry-point storefront response (ADR-008) returned by <c>websiteEntry(portalCode, locale, path)</c>.
