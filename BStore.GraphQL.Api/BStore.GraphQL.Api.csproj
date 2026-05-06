@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\znode10-api-migration\Znode.Multifront\Libraries\Znode.Libraries.Data\Znode.Libraries.Data.csproj" />
+    <ProjectReference Include="..\..\znode10-api-migration\Znode.Multifront\Libraries\Znode.Libraries.Data\Znode.Libraries.Data.csproj" />
   </ItemGroup>
 
 </Project>
