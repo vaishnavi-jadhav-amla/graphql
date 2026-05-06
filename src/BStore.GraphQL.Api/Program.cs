@@ -1,4 +1,5 @@
 using BStore.GraphQL.Api.Auth;
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Configuration;
 using BStore.GraphQL.Api.Diagnostics;
 using BStore.GraphQL.Api.GraphQL.Infrastructure;
@@ -62,6 +63,9 @@ app.MapGet("/health/providers", (IProviderHealthTracker tracker, IRequestDebugCo
         : Results.Json(tracker.Snapshot()));
 
 app.MapGet("/", () => Results.Redirect("/graphql")).AllowAnonymous();
+
+// Admin-secured token generator for field-level permission testing (all environments)
+app.MapAuthTokenEndpoints();
 
 // ──────────────────────────────────────────────────────────────────────
 // THREE GRAPHQL ENDPOINTS

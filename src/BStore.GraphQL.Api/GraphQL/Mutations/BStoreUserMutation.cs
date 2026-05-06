@@ -1,3 +1,4 @@
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Common;
 using BStore.GraphQL.Api.Data;
@@ -17,7 +18,7 @@ public sealed class BStoreUserMutation(
     ILogger<BStoreUserMutation> logger,
     ICacheService cache)
 {
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreUserRoleAccessSave(
         BStoreUserRoleInput input,
         [Service] IBStoreUserDataService users,
@@ -41,7 +42,7 @@ public sealed class BStoreUserMutation(
         }
     }
 
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreUserAccessToggle(
         BStoreUserAccessInput input,
         [Service] IBStoreUserDataService users,

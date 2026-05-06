@@ -1,3 +1,4 @@
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Common;
 using BStore.GraphQL.Api.Configuration;
@@ -26,6 +27,7 @@ public sealed class ProductQueryResolvers(
     private readonly GraphQLOptions _opts = options.Value;
 
     [GraphQLDescription("Paginated list from published products (Znode_Entities).")]
+    [RequireAuthenticated]
     public async Task<ProductListResult?> ProductList(
         [DefaultValue(24)] int limit,
         [DefaultValue(0)] int skip,
@@ -67,6 +69,7 @@ public sealed class ProductQueryResolvers(
     }
 
     [GraphQLDescription("Single published product by publish product id.")]
+    [RequireAuthenticated]
     public async Task<ProductRow?> Product(
         int id,
         [Service] IProductCatalogReadService catalog,
@@ -92,6 +95,7 @@ public sealed class ProductQueryResolvers(
     }
 
     [GraphQLDescription("Search published products by name or SKU.")]
+    [RequireAuthenticated]
     public async Task<ProductListResult?> ProductSearch(
         string q,
         [DefaultValue(24)] int limit,
@@ -129,6 +133,7 @@ public sealed class ProductQueryResolvers(
     }
 
     [GraphQLDescription("Published category codes (ZnodePublishCategoryDetail).")]
+    [RequireAuthenticated]
     public async Task<List<ProductCategoryRow>?> ProductCategories(
         [Service] IProductCatalogReadService catalog,
         CancellationToken ct)
@@ -150,6 +155,7 @@ public sealed class ProductQueryResolvers(
     }
 
     [GraphQLDescription("Published products in a category (by category code / slug).")]
+    [RequireAuthenticated]
     public async Task<ProductListResult?> ProductsByCategory(
         string category,
         [DefaultValue(24)] int limit,

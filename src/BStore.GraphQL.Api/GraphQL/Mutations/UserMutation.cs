@@ -1,3 +1,4 @@
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Common;
 using BStore.GraphQL.Api.Data;
@@ -17,7 +18,7 @@ public sealed class UserMutation(
     ILogger<UserMutation> logger,
     ICacheService cache)
 {
-    // [Authorize]
+    [RequireAdmin]
     public async Task<UserRow?> UserCreate(
         UserCreateInput input,
         [Service] IUserDataService users,
@@ -36,7 +37,7 @@ public sealed class UserMutation(
         }
     }
 
-    // [Authorize]
+    [RequireAdmin]
     public async Task<bool> UserDelete(
         string id,
         [Service] IUserDataService users,
@@ -55,7 +56,7 @@ public sealed class UserMutation(
         }
     }
 
-    // [Authorize]
+    [RequireAuthenticated]
     public async Task<bool> UserUpdate(
         UserUpdateInput input,
         [Service] IUserDataService users,
@@ -77,7 +78,7 @@ public sealed class UserMutation(
         }
     }
 
-    // [Authorize]
+    [RequireAdmin]
     public async Task<bool> UserToggleActive(
         int userId,
         bool lockUser,

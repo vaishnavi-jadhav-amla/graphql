@@ -1,3 +1,5 @@
+using BStore.GraphQL.Api.Auth;
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using HotChocolate;
 
 namespace BStore.GraphQL.Api.GraphQL.Types;
@@ -15,8 +17,14 @@ public sealed class ProductRow
     public string Description { get; set; } = "";
     public string Category { get; set; } = "";
     public decimal Price { get; set; }
+
+    [RequirePermission(Roles = [AuthConstants.RoleAdmin, AuthConstants.RoleBStoreOwner])]
     public double DiscountPercentage { get; set; }
+
     public double Rating { get; set; }
+
+    [RequirePermission(Permissions = ["inventory.read"],
+        Roles = [AuthConstants.RoleAdmin, AuthConstants.RoleBStoreOwner, AuthConstants.RoleBStoreEmployee])]
     public int Stock { get; set; }
     public string? Brand { get; set; }
 

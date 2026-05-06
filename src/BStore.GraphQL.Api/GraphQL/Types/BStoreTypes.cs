@@ -1,3 +1,6 @@
+using BStore.GraphQL.Api.Auth;
+using BStore.GraphQL.Api.Auth.FieldPermissions;
+
 namespace BStore.GraphQL.Api.GraphQL.Types;
 
 // ── B-store list ───────────────────────────────────────────────────────────────
@@ -36,6 +39,8 @@ public sealed class BStoreDetails
     public string? StoreCode             { get; set; }
     public int?    ParentPortalId        { get; set; }
     public string? CustomCSSClass        { get; set; }
+
+    [RequirePermission(Roles = [AuthConstants.RoleAdmin, AuthConstants.RoleBStoreOwner])]
     public string? GlobalAttributes      { get; set; }
     public string? LocaleCode            { get; set; }
     public string? CurrencyCode          { get; set; }
@@ -44,6 +49,8 @@ public sealed class BStoreDetails
     public bool    EnableGuestUserSignup  { get; set; }
     public bool    EnableUserRegistration { get; set; }
     public string? CSSThemeName          { get; set; }
+    [RequirePermission(Roles = [AuthConstants.RoleAdmin, AuthConstants.RoleServerToServer],
+        DeniedMessage = "ExternalId is restricted to admin and server-to-server integrations.")]
     public string? ExternalId            { get; set; }
 }
 

@@ -22,7 +22,7 @@ public sealed class AuthMutation(ILogger<AuthMutation> logger)
     /// Validates a B-store access / impersonation token.
     /// Returns SSO access details on success.
     /// </summary>
-    // [Authorize]
+    // No auth required — this IS the auth/login flow.
     public async Task<BStoreValidateTokenResult> BStoreValidateToken(
         string token,
         [Service] IAuthApiClient client,

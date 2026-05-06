@@ -1,4 +1,5 @@
 using BStore.GraphQL.Api.Application;
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Common;
 using BStore.GraphQL.Api.GraphQL.Types;
@@ -16,7 +17,7 @@ namespace BStore.GraphQL.Api.GraphQL.Mutations;
 /// On success, related cache entries are invalidated.
 /// </summary>
 /// <remarks>
-/// TODO: Uncomment <c>[Authorize]</c> attributes and configure JWT before deploying to production.
+/// All mutations require at least BStoreAdmin role (Admin, BStoreOwner, or ServerToServer).
 /// </remarks>
 public sealed class BStoreMutation(
     ILogger<BStoreMutation> logger,
@@ -27,7 +28,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Creates a new B-store under a parent portal for a user.</summary>
     [GraphQLDescription("Downstream: POST /v2/b-stores/parent-portal/{portalId}/users/{userId}/setup")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<CreateStoreResult?> BStoreCreate(
         int portalId,
         int userId,
@@ -52,7 +53,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Duplicates an existing B-store.</summary>
     [GraphQLDescription("Downstream: POST /v2/b-stores/{sourcePortalId}/copy")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreCopy(
         int sourcePortalId,
         int userId,
@@ -80,7 +81,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Activates or deactivates a B-store.</summary>
     [GraphQLDescription("Downstream: POST /v2/b-stores/{storeId}/users/{userId}/set-activation")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreSetActivation(
         int storeId,
         int userId,
@@ -114,7 +115,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Updates core settings for a B-store.</summary>
     [GraphQLDescription("Downstream: PUT /v2/b-stores/{storeId}")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreUpdate(
         int storeId,
         int userId,
@@ -148,7 +149,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Updates theme/branding settings for a B-store.</summary>
     [GraphQLDescription("Downstream: PUT /v2/b-stores/{storeId}/theme")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreThemeUpdate(
         int storeId,
         int userId,
@@ -182,7 +183,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Uploads a file to media storage.</summary>
     [GraphQLDescription("Downstream: POST /FileUpload/post (also /fileupload/post on some hosts)")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<FileUploadResult?> BStoreUploadFile(
         IFile file,
         int mediaId,
@@ -207,7 +208,7 @@ public sealed class BStoreMutation(
 
     /// <summary>Deletes uploaded media by comma-separated media IDs.</summary>
     [GraphQLDescription("Downstream: POST /FileUpload/remove")]
-    // [Authorize]
+    [RequireBStoreAdmin]
     public async Task<bool> BStoreRemoveUploadedFile(
         string mediaIds,
         [Service] IBStoreApplicationService bStore,

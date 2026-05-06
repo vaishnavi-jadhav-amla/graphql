@@ -1,4 +1,5 @@
 using BStore.GraphQL.Api.Application;
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Common;
 using BStore.GraphQL.Api.Configuration;
@@ -24,6 +25,7 @@ public sealed class BStoreQueryResolvers(
     private readonly GraphQLOptions _opts = options.Value;
 
     [GraphQLDescription("Downstream: GET /v2/b-stores/parent-portal/{portalId}/users/{userId}/stores")]
+    [RequireAuthenticated]
     public async Task<BStoreListResult?> BStoreList(
         int portalId,
         int userId,
@@ -47,6 +49,7 @@ public sealed class BStoreQueryResolvers(
     }
 
     [GraphQLDescription("Downstream: GET /v2/b-stores/{storeId}")]
+    [RequireAuthenticated]
     public async Task<BStoreDetails?> BStore(
         int storeId,
         [Service] IBStoreApplicationService bStore,
@@ -69,6 +72,7 @@ public sealed class BStoreQueryResolvers(
     }
 
     [GraphQLDescription("Downstream: GET /v2/b-stores/{storeId}/theme")]
+    [RequireAuthenticated]
     public async Task<BStoreDesign?> BStoreTheme(
         int storeId,
         [Service] IBStoreApplicationService bStore,
@@ -91,6 +95,7 @@ public sealed class BStoreQueryResolvers(
     }
 
     [GraphQLDescription("Downstream: GET /v2/b-stores/parent-portal/{portalId}/catalogs")]
+    [RequireAuthenticated]
     public async Task<List<CatalogItem>?> BStoreCatalogs(
         int portalId,
         bool associated,
@@ -119,6 +124,7 @@ public sealed class BStoreQueryResolvers(
     }
 
     [GraphQLDescription("Downstream: GET /v2/b-stores/parent-portal/{portalId}/price-list")]
+    [RequireAuthenticated]
     public async Task<List<PriceListItem>?> BStorePriceLists(
         int portalId,
         bool associated,
@@ -144,6 +150,7 @@ public sealed class BStoreQueryResolvers(
     }
 
     [GraphQLDescription("Downstream: GET /v2/b-stores/parent-portal/{portalId}/domain-name")]
+    [RequireAuthenticated]
     public async Task<string?> BStoreDomainNameSuffix(
         int portalId,
         [Service] IBStoreApplicationService bStore,
@@ -166,6 +173,7 @@ public sealed class BStoreQueryResolvers(
     }
 
     [GraphQLDescription("Downstream: GET /Domain/List")]
+    [RequireAuthenticated]
     public async Task<List<DomainListItem>?> DomainList(
         [Service] IBStoreApplicationService bStore,
         CancellationToken ct)

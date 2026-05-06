@@ -13,4 +13,5 @@ public static class ErrorCodes
     public const string PageSizeExceeded         = "BSTORE_PAGE_SIZE_EXCEEDED";
     public const string DepthExceeded            = "BSTORE_DEPTH_EXCEEDED";
     public const string ProviderUnavailable      = "BSTORE_PROVIDER_UNAVAILABLE";
+    public const string FieldAccessDenied        = "FIELD_ACCESS_DENIED";
 }

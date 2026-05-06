@@ -1,6 +1,7 @@
 using BStore.GraphQL.Api.Application;
 using BStore.GraphQL.Api.Attributes;
 using BStore.GraphQL.Api.Auth;
+using BStore.GraphQL.Api.Auth.FieldPermissions;
 using BStore.GraphQL.Api.Bulk;
 using BStore.GraphQL.Api.Caching;
 using BStore.GraphQL.Api.Catalog;
@@ -174,6 +175,9 @@ public static class BStoreGraphQLServiceRegistration
         // --- Permission Settings ---
         builder.Services.Configure<PermissionSettings>(builder.Configuration.GetSection(PermissionSettings.Section));
 
+        // --- Field-Level Permission Evaluator ---
+        builder.Services.AddScoped<IFieldPermissionEvaluator, DefaultFieldPermissionEvaluator>();
+
         builder.Services.AddHealthChecks();
 
         builder.Services.AddScoped<BStoreQueryResolvers>();
@@ -217,6 +221,7 @@ public static class BStoreGraphQLServiceRegistration
             .AddTypeExtension<AuthMutation>()
             .AddUploadType()
             .AddAuthorization()
+            .TryAddTypeInterceptor<FieldPermissionTypeInterceptor>()
             .AddErrorFilter<BStoreGraphQLErrorFilter>()
             .AddDiagnosticEventListener<BStoreGraphQLDiagnosticListener>()
             .AddMaxExecutionDepthRule(gql.MaxQueryDepth)
@@ -259,6 +264,7 @@ public static class BStoreGraphQLServiceRegistration
             .AddDataLoader<ProductAttributeDataLoader>()
             .AddUploadType()
             .AddAuthorization()
+            .TryAddTypeInterceptor<FieldPermissionTypeInterceptor>()
             .AddErrorFilter<BStoreGraphQLErrorFilter>()
             .AddDiagnosticEventListener<BStoreGraphQLDiagnosticListener>()
             .AddMaxExecutionDepthRule(gql.MaxQueryDepth)
@@ -292,6 +298,7 @@ public static class BStoreGraphQLServiceRegistration
             .AddDataLoader<OrderLineItemDataLoader>()
             .AddUploadType()
             .AddAuthorization()
+            .TryAddTypeInterceptor<FieldPermissionTypeInterceptor>()
             .AddErrorFilter<BStoreGraphQLErrorFilter>()
             .AddDiagnosticEventListener<BStoreGraphQLDiagnosticListener>()
             .AddMaxExecutionDepthRule(gql.MaxQueryDepth)

@@ -152,7 +152,7 @@ public sealed class BStoreGraphQLErrorFilter(
                 "BSTORE_VALIDATION" or "INVALID_ARGUMENT" or "BSTORE_PAGE_SIZE_EXCEEDED" or "BSTORE_DEPTH_EXCEEDED" => ErrorCategory.Validation,
                 "BSTORE_NOT_FOUND" or "NOT_FOUND" => ErrorCategory.NotFound,
                 "UNAUTHORIZED" => ErrorCategory.Authorization,
-                "BSTORE_ADMIN_REQUIRED" => ErrorCategory.Authorization,
+                "BSTORE_ADMIN_REQUIRED" or "FIELD_ACCESS_DENIED" => ErrorCategory.Authorization,
                 "TIMEOUT" => ErrorCategory.Timeout,
                 "DATABASE_ERROR" => ErrorCategory.Database,
                 "RATE_LIMITED" => ErrorCategory.RateLimited,
